@@ -1,5 +1,7 @@
 # Loksteuerung
 
+**Deutsch** | [English](README.en.md)
+
 Android-App zur Steuerung von Modellloks über WLAN, für Loks mit der
 [PiedPiperS](https://github.com/jorail/PiedPiperS)-Firmware (ESP32).
 
