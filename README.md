@@ -219,3 +219,8 @@ app/src/main/java/com/fribchol/loksteuerung/
 Die Firmware für die Lok stammt aus dem Projekt
 [PiedPiperS](https://github.com/jorail/PiedPiperS) von jorail.
 Diese App enthält keinen Code daraus, sie nutzt nur dasselbe Steuerprotokoll.
+
+## Lizenz
+
+Dieses Projekt steht unter der [MIT-Lizenz](LICENSE). Der Code darf frei verwendet, verändert
+und weitergegeben werden, solange der Lizenzhinweis erhalten bleibt.
