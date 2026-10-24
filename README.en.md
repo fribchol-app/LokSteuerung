@@ -13,12 +13,18 @@ Scan the loco's QR code, connect, drive. No command station, no cables, no brows
 > Android remote control for it.
 
 <p align="center">
-  <img src="docs/screenshots/startseite.png" alt="Start screen" width="260">
+  <img src="source/docs/screenshots/startseite.png" alt="Start screen" width="260">
   &nbsp;&nbsp;
-  <img src="docs/screenshots/steuerung.png" alt="Control panel" width="260">
+  <img src="source/docs/screenshots/steuerung.png" alt="Control panel" width="260">
 </p>
 
 > The app itself is in German.
+
+## Download
+
+**[Download LokSteuerungV1.0.0.apk](LokSteuerungV1.0.0.apk)** (Android 10 or newer)
+
+Tap the APK on your phone and confirm "Allow installation from this source".
 
 ---
 
@@ -55,7 +61,7 @@ and paste the address of this repository.
 ### 2. Open in Android Studio
 
 1. Choose **File → Open**.
-2. Select the folder that contains `settings.gradle.kts` and the `app` folder.
+2. Select the **`source`** folder (it contains `settings.gradle.kts` and the `app` folder).
 3. Confirm with **OK** and choose **Trust Project** if asked.
 
 > If extracting creates a `Loksteuerung` folder inside another `Loksteuerung` folder,
@@ -81,7 +87,7 @@ If an upgrade of the Android Gradle Plugin is offered, you can skip it with "Rem
 
 **Build → Generate App Bundles or APKs → Generate APKs**
 
-The file is then located at `app/build/outputs/apk/debug/app-debug.apk`.
+The file is then located at `source/app/build/outputs/apk/debug/app-debug.apk`.
 
 **Signed release APK** (for sharing):
 
@@ -89,7 +95,7 @@ The file is then located at `app/build/outputs/apk/debug/app-debug.apk`.
 2. Select an existing keystore or create a new one with **Create new…**.
 3. Choose **release** and click **Create**.
 
-The file is then located at `app/release/app-release.apk`.
+The file is then located at `source/app/release/app-release.apk`.
 
 > Keep the keystore and its passwords safe and **never** upload them to the repository.
 > Without it you can no longer sign updates.
@@ -163,7 +169,7 @@ Such codes can be created with any WiFi QR code generator. Ideally print it and 
 loco or the layout.
 
 An example for the firmware's default SSID is located at
-[`extras/beispiel-lok-wlan-qr.png`](extras/beispiel-lok-wlan-qr.png).
+[`source/extras/beispiel-lok-wlan-qr.png`](source/extras/beispiel-lok-wlan-qr.png).
 
 The QR code from the PiedPiperS repository (`http://192.168.4.1`) works as well.
 It contains no WiFi credentials though, so the phone must already be connected to the loco's WiFi.
@@ -207,7 +213,7 @@ Connection: `ws://192.168.4.1/ws`
 ### Project structure
 
 ```text
-app/src/main/java/com/fribchol/loksteuerung/
+source/app/src/main/java/com/fribchol/loksteuerung/
 ├── MainActivity.kt      entry point, QR scanner, permissions
 ├── LocoViewModel.kt     app state, driving logic, speed calculation
 ├── LocoLink.kt          connection to the real loco and the demo loco

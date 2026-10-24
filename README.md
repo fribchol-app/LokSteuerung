@@ -13,10 +13,16 @@ QR-Code der Lok scannen, verbinden, losfahren. Ohne Zentrale, ohne Kabel, ohne B
 > Android-Fernbedienung dazu.
 
 <p align="center">
-  <img src="docs/screenshots/startseite.png" alt="Startseite" width="260">
+  <img src="source/docs/screenshots/startseite.png" alt="Startseite" width="260">
   &nbsp;&nbsp;
-  <img src="docs/screenshots/steuerung.png" alt="Fahrpult" width="260">
+  <img src="source/docs/screenshots/steuerung.png" alt="Fahrpult" width="260">
 </p>
+
+## Download
+
+**[LokSteuerungV1.0.0.apk herunterladen](LokSteuerungV1.0.0.apk)** (Android 10 oder neuer)
+
+Die APK auf dem Handy antippen und „Installation aus dieser Quelle erlauben“ bestätigen.
 
 ---
 
@@ -53,7 +59,7 @@ und die Adresse dieses Repositorys einfügen.
 ### 2. In Android Studio öffnen
 
 1. **File → Open** wählen.
-2. Den Ordner auswählen, in dem `settings.gradle.kts` und der Ordner `app` liegen.
+2. Den Ordner **`source`** auswählen (darin liegen `settings.gradle.kts` und der Ordner `app`).
 3. Mit **OK** bestätigen und bei Nachfrage **Trust Project** wählen.
 
 > Liegt nach dem Entpacken ein Ordner `Loksteuerung` in einem weiteren Ordner `Loksteuerung`,
@@ -79,7 +85,7 @@ Ein angebotenes Upgrade des Android Gradle Plugins kann mit „Remind me later�
 
 **Build → Generate App Bundles or APKs → Generate APKs**
 
-Die Datei liegt danach unter `app/build/outputs/apk/debug/app-debug.apk`.
+Die Datei liegt danach unter `source/app/build/outputs/apk/debug/app-debug.apk`.
 
 **Signierte Release-APK** (zum Weitergeben):
 
@@ -87,7 +93,7 @@ Die Datei liegt danach unter `app/build/outputs/apk/debug/app-debug.apk`.
 2. Einen bestehenden Keystore auswählen oder mit **Create new…** einen neuen anlegen.
 3. **release** wählen und auf **Create** klicken.
 
-Die Datei liegt danach unter `app/release/app-release.apk`.
+Die Datei liegt danach unter `source/app/release/app-release.apk`.
 
 > Den Keystore und seine Passwörter gut aufbewahren und **niemals** ins Repository hochladen.
 > Ohne ihn lassen sich keine Updates mehr signieren.
@@ -160,7 +166,7 @@ Solche Codes lassen sich mit jedem WLAN-QR-Code-Generator erstellen. Am besten a
 an die Lok oder an die Anlage kleben.
 
 Ein Beispiel für die Standard-SSID der Firmware liegt unter
-[`extras/beispiel-lok-wlan-qr.png`](extras/beispiel-lok-wlan-qr.png).
+[`source/extras/beispiel-lok-wlan-qr.png`](source/extras/beispiel-lok-wlan-qr.png).
 
 Der QR-Code aus dem PiedPiperS-Repository (`http://192.168.4.1`) funktioniert ebenfalls.
 Er enthält aber keine WLAN-Daten, deshalb muss das Handy dann schon mit dem Lok-WLAN verbunden sein.
@@ -204,7 +210,7 @@ Verbindung: `ws://192.168.4.1/ws`
 ### Projektstruktur
 
 ```text
-app/src/main/java/com/fribchol/loksteuerung/
+source/app/src/main/java/com/fribchol/loksteuerung/
 ├── MainActivity.kt      Einstieg, QR-Scanner, Berechtigungen
 ├── LocoViewModel.kt     Zustand der App, Fahrlogik, Tempo-Berechnung
 ├── LocoLink.kt          Verbindung zur echten Lok und zur Demo-Lok
