@@ -1,0 +1,22 @@
+# Android Studio / Gradle
+*.iml
+.gradle
+/local.properties
+/.idea
+.DS_Store
+/build
+/app/build
+/captures
+.externalNativeBuild
+.cxx
+
+# Fertige APKs / App Bundles
+/app/release
+/app/debug
+*.apk
+*.aab
+
+# Signier-Schlüssel – NIEMALS hochladen!
+*.jks
+*.keystore
+keystore.properties
