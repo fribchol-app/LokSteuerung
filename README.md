@@ -5,6 +5,11 @@ Android-App zur Steuerung von Modellloks über WLAN, für Loks mit der
 
 QR-Code der Lok scannen, verbinden, losfahren. Ohne Zentrale, ohne Kabel, ohne Browser.
 
+> Die Idee und die Lok-Seite stammen aus dem Projekt
+> [PiedPiperS](https://github.com/jorail/PiedPiperS) von jorail: Ein ESP32 in der Lok öffnet ein
+> eigenes WLAN und lässt sich über eine Webseite steuern. Diese App ist die passende
+> Android-Fernbedienung dazu.
+
 <p align="center">
   <img src="docs/screenshots/startseite.png" alt="Startseite" width="260">
   &nbsp;&nbsp;
@@ -214,11 +219,21 @@ app/src/main/java/com/fribchol/loksteuerung/
 
 ---
 
-## Danksagung
+## Danksagung und Herkunft der Idee
 
-Die Firmware für die Lok stammt aus dem Projekt
-[PiedPiperS](https://github.com/jorail/PiedPiperS) von jorail.
-Diese App enthält keinen Code daraus, sie nutzt nur dasselbe Steuerprotokoll.
+Die eigentliche Idee zu diesem Projekt stammt von
+[PiedPiperS](https://github.com/jorail/PiedPiperS) von jorail. Dort wird gezeigt, wie man eine
+Modelllok mit einem ESP32, einem Motortreiber und einer USB-Powerbank ausrüstet und sie per WLAN
+über das Smartphone steuert. Die komplette Firmware, die Bauanleitung und die Hardware kommen aus
+diesem Projekt.
+
+Darauf aufbauend ist diese Android-App entstanden. Sie ersetzt die Weboberfläche im Browser durch
+eine eigene App mit Fahrregler, Tacho, Demo-Modus und Verbindung per QR-Code.
+
+Die App enthält keinen Code aus PiedPiperS, sie nutzt nur dasselbe Steuerprotokoll. Für den Bau
+der Lok-Hardware und die Firmware bitte direkt das PiedPiperS-Repository nutzen.
+
+Vielen Dank an jorail für das tolle Projekt.
 
 ## Lizenz
 
