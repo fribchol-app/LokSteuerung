@@ -22,7 +22,16 @@ QR-Code der Lok scannen, verbinden, losfahren. Ohne Zentrale, ohne Kabel, ohne B
 
 **[LokSteuerungV1.0.0.apk herunterladen](LokSteuerungV1.0.0.apk)** (Android 10 oder neuer)
 
+Oder einfach den QR-Code mit dem Handy scannen:
+
+<p align="center">
+  <img src="source/docs/download-qr.png" alt="QR-Code zum Download der App" width="220">
+</p>
+
 Die APK auf dem Handy antippen und „Installation aus dieser Quelle erlauben“ bestätigen.
+
+Zum Ausdrucken gibt es den QR-Code auch als
+[A4-Blatt (PDF)](source/docs/Loksteuerung-Download-QR.pdf), zum Beispiel für die Modellbahn-Anlage.
 
 ---
 

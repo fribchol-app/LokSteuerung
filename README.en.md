@@ -24,7 +24,16 @@ Scan the loco's QR code, connect, drive. No command station, no cables, no brows
 
 **[Download LokSteuerungV1.0.0.apk](LokSteuerungV1.0.0.apk)** (Android 10 or newer)
 
+Or simply scan the QR code with your phone:
+
+<p align="center">
+  <img src="source/docs/download-qr.png" alt="QR code to download the app" width="220">
+</p>
+
 Tap the APK on your phone and confirm "Allow installation from this source".
+
+The QR code is also available as a printable
+[A4 sheet (PDF)](source/docs/Loksteuerung-Download-QR.pdf), for example to put next to the layout.
 
 ---
 
