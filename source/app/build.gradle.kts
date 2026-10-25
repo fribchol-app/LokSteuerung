@@ -13,8 +13,8 @@ android {
         // Android 10 (API 29) ist nötig, damit sich die App per Code mit dem Lok-WLAN verbinden kann
         minSdk = 29
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 3
+        versionName = "1.0.1"
     }
 
     buildTypes {

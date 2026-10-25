@@ -72,12 +72,23 @@ class MainActivity : ComponentActivity() {
                                 onResetTrip = viewModel::resetTrip,
                                 onSaveSettings = viewModel::saveSettings,
                                 onDisconnect = viewModel::disconnect,
+                                onUserActivity = viewModel::onUserActivity,
                             )
                         }
                     }
                 }
             }
         }
+    }
+
+    /**
+     * Die App ist nicht mehr sichtbar: Home-Taste, Display aus, Anruf, App-Wechsel.
+     * Dann hält die Lok zur Sicherheit an und wird freigegeben.
+     * Ausnahme: Android baut die Activity nur neu auf (z. B. Dark-Mode umgeschaltet).
+     */
+    override fun onStop() {
+        super.onStop()
+        if (!isChangingConfigurations) viewModel.onAppBackground()
     }
 
     private fun startQrScan() {

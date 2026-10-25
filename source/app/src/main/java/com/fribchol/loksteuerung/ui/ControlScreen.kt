@@ -2,6 +2,8 @@ package com.fribchol.loksteuerung.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -10,6 +12,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -48,6 +51,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -59,6 +63,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -81,8 +88,9 @@ fun ControlScreen(
     onStop: () -> Unit,
     onToggleLight: () -> Unit,
     onResetTrip: () -> Unit,
-    onSaveSettings: (Int, Int) -> Unit,
+    onSaveSettings: (Int, Int, Int) -> Unit,
     onDisconnect: () -> Unit,
+    onUserActivity: () -> Unit,
 ) {
     var showSettings by remember { mutableStateOf(false) }
     val accent = if (ui.forward) LokColors.Forward else LokColors.Backward
@@ -92,6 +100,16 @@ fun ControlScreen(
         Modifier
             .fillMaxSize()
             .background(Brush.verticalGradient(listOf(Color(0xFF151B24), LokColors.Background)))
+            // Totmann: jede Berührung irgendwo auf dem Fahrpult meldet "Ich bin noch da".
+            // PointerEventPass.Initial + nichts konsumieren -> Knöpfe und Regler funktionieren normal weiter.
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        if (event.type == PointerEventType.Press) onUserActivity()
+                    }
+                }
+            }
     ) {
         Column(
             Modifier
@@ -171,12 +189,22 @@ fun ControlScreen(
 
             Text(
                 "Tempo und Strecke werden aus der Fahrstufe berechnet (keine Sensoren). " +
-                        "Über ⚙ kannst du Maßstab und Höchsttempo anpassen.",
+                        "Totmann: Wird ${ui.deadManSeconds} s lang nichts berührt, während die Lok fährt, " +
+                        "hält sie an. Über ⚙ kannst du das anpassen.",
                 color = LokColors.Muted.copy(alpha = 0.7f),
                 fontSize = 11.sp,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
             )
+        }
+
+        // Totmann-Warnung liegt über allem
+        AnimatedVisibility(
+            visible = ui.deadManCountdown != null,
+            enter = fadeIn(),
+            exit = fadeOut(),
+        ) {
+            DeadManOverlay(seconds = ui.deadManCountdown ?: 0, onConfirm = onUserActivity)
         }
     }
 
@@ -184,12 +212,95 @@ fun ControlScreen(
         SettingsDialog(
             scale = ui.scale,
             maxKmh = ui.maxKmh,
+            deadManSeconds = ui.deadManSeconds,
+            onUserActivity = onUserActivity,
             onDismiss = { showSettings = false },
-            onSave = { scale, maxKmh ->
-                onSaveSettings(scale, maxKmh)
+            onSave = { scale, maxKmh, deadMan ->
+                onSaveSettings(scale, maxKmh, deadMan)
                 showSettings = false
             },
         )
+    }
+}
+
+/**
+ * Totmann-Warnung: Bildschirm wird abgedunkelt, großer Countdown, Handy vibriert jede Sekunde.
+ * Ein Tipp irgendwo genügt, um weiterzufahren.
+ */
+@Composable
+private fun DeadManOverlay(seconds: Int, onConfirm: () -> Unit) {
+    val haptic = LocalHapticFeedback.current
+    LaunchedEffect(seconds) {
+        if (seconds > 0) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+    }
+    val pulse = rememberInfiniteTransition(label = "deadManPulse")
+    val ringAlpha by pulse.animateFloat(
+        initialValue = 1f, targetValue = 0.35f,
+        animationSpec = infiniteRepeatable(tween(500), RepeatMode.Reverse),
+        label = "deadManRing",
+    )
+
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.78f))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onConfirm,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(horizontal = 32.dp),
+        ) {
+            Text(
+                "TOTMANN",
+                color = LokColors.Stop,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = 4.sp,
+            )
+            Spacer(Modifier.height(20.dp))
+            Box(
+                Modifier
+                    .size(170.dp)
+                    .border(6.dp, LokColors.Stop.copy(alpha = ringAlpha), CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    seconds.toString(),
+                    color = LokColors.Text,
+                    fontSize = 84.sp,
+                    fontWeight = FontWeight.Bold,
+                    style = TextStyle(fontFeatureSettings = "tnum"),
+                )
+            }
+            Spacer(Modifier.height(24.dp))
+            Text(
+                "Bist du noch da?",
+                color = LokColors.Text,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Tippe irgendwo auf den Bildschirm, sonst hält die Lok an und wird für andere freigegeben.",
+                color = LokColors.Muted,
+                fontSize = 15.sp,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(28.dp))
+            Button(
+                onClick = onConfirm,
+                shape = RoundedCornerShape(20.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = LokColors.Brass, contentColor = LokColors.OnBrass),
+                modifier = Modifier.fillMaxWidth().height(60.dp),
+            ) {
+                Text("Ich bin da – weiterfahren", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            }
+        }
     }
 }
 
@@ -409,16 +520,22 @@ private fun RowScope.BigActionButton(
 private fun SettingsDialog(
     scale: Int,
     maxKmh: Int,
+    deadManSeconds: Int,
+    onUserActivity: () -> Unit,
     onDismiss: () -> Unit,
-    onSave: (Int, Int) -> Unit,
+    onSave: (Int, Int, Int) -> Unit,
 ) {
     var scaleText by remember { mutableStateOf(scale.toString()) }
     var maxText by remember { mutableStateOf(maxKmh.toString()) }
+    var deadManText by remember { mutableStateOf(deadManSeconds.toString()) }
+
+    // Der Dialog ist ein eigenes Fenster – Eingaben hier zählen auch als "Ich bin da"
+    LaunchedEffect(Unit) { onUserActivity() }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = LokColors.Surface,
-        title = { Text("Tempo-Berechnung") },
+        title = { Text("Einstellungen") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
@@ -430,7 +547,7 @@ private fun SettingsDialog(
                 )
                 OutlinedTextField(
                     value = scaleText,
-                    onValueChange = { scaleText = it.filter(Char::isDigit).take(3) },
+                    onValueChange = { scaleText = it.filter(Char::isDigit).take(3); onUserActivity() },
                     label = { Text("Maßstab 1 : …") },
                     supportingText = { Text("H0 = 87 · TT = 120 · N = 160 · Spur 1 = 32") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -438,8 +555,16 @@ private fun SettingsDialog(
                 )
                 OutlinedTextField(
                     value = maxText,
-                    onValueChange = { maxText = it.filter(Char::isDigit).take(3) },
+                    onValueChange = { maxText = it.filter(Char::isDigit).take(3); onUserActivity() },
                     label = { Text("Modell-Tempo bei voller Stufe (km/h)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                )
+                OutlinedTextField(
+                    value = deadManText,
+                    onValueChange = { deadManText = it.filter(Char::isDigit).take(3); onUserActivity() },
+                    label = { Text("Totmann-Zeit (Sekunden)") },
+                    supportingText = { Text("So lange darf die Lok ohne Berührung fahren (10–600 s)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
                 )
@@ -449,7 +574,8 @@ private fun SettingsDialog(
             TextButton(onClick = {
                 val newScale = scaleText.toIntOrNull()?.coerceIn(1, 999) ?: scale
                 val newMax = maxText.toIntOrNull()?.coerceIn(10, 999) ?: maxKmh
-                onSave(newScale, newMax)
+                val newDeadMan = deadManText.toIntOrNull()?.coerceIn(10, 600) ?: deadManSeconds
+                onSave(newScale, newMax, newDeadMan)
             }) { Text("Speichern") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } },

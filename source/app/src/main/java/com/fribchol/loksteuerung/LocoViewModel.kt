@@ -35,6 +35,8 @@ data class UiState(
     val scale: Int = 87,          // Maßstab 1:87 (H0)
     val maxKmh: Int = 160,        // Modell-Tempo bei Stufe 32
     val foreignControl: Boolean = false, // ein anderes Gerät hat gerade einen Befehl geschickt
+    val deadManSeconds: Int = 60,        // Totmann: so lange darf die Lok ohne Bedienung fahren
+    val deadManCountdown: Int? = null,   // != null -> Totmann-Warnung mit Restsekunden
 )
 
 class LocoViewModel(app: Application) : AndroidViewModel(app) {
@@ -44,6 +46,13 @@ class LocoViewModel(app: Application) : AndroidViewModel(app) {
         private const val SEND_THROTTLE_MS = 150L
         private const val PREF_SCALE = "scale"
         private const val PREF_MAX_KMH = "maxKmh"
+        private const val PREF_DEAD_MAN = "deadManSeconds"
+
+        /** So viele Sekunden läuft der Warn-Countdown, bevor der Totmann auslöst. */
+        const val DEAD_MAN_WARNING_SECONDS = 10
+
+        /** Zeit, damit der Halt-Befehl noch bei der Lok ankommt, bevor die Verbindung getrennt wird. */
+        private const val FLUSH_BEFORE_CLOSE_MS = 600L
     }
 
     private val prefs = app.getSharedPreferences("lok_settings", Context.MODE_PRIVATE)
@@ -52,6 +61,7 @@ class LocoViewModel(app: Application) : AndroidViewModel(app) {
         UiState(
             scale = prefs.getInt(PREF_SCALE, 87),
             maxKmh = prefs.getInt(PREF_MAX_KMH, 160),
+            deadManSeconds = prefs.getInt(PREF_DEAD_MAN, 60),
         )
     )
     val ui: StateFlow<UiState> = _ui.asStateFlow()
@@ -67,6 +77,9 @@ class LocoViewModel(app: Application) : AndroidViewModel(app) {
     private var lastSendTime = 0L
     private var dragging = false
     private var foreignWarningJob: Job? = null
+
+    /** Zeitpunkt der letzten Berührung auf dem Fahrpult (für den Totmann-Schalter). */
+    private var lastActivity = SystemClock.elapsedRealtime()
 
     // ---------------------------------------------------------------------------------------
     // Verbinden
@@ -113,12 +126,14 @@ class LocoViewModel(app: Application) : AndroidViewModel(app) {
         closeLink()
         link = newLink
         dragging = false
+        lastActivity = SystemClock.elapsedRealtime()
         _ui.update {
             it.copy(
                 screen = Screen.CONTROL, locoName = name, isDemo = demo,
                 error = null, connectingText = null, linkStatus = LinkStatus.CONNECTING,
                 target = 0, level = 0, forward = true, light = false,
                 scaleKmh = 0f, distanceM = 0.0, driveMillis = 0L, foreignControl = false,
+                deadManCountdown = null,
             )
         }
         linkJobs += viewModelScope.launch {
@@ -134,15 +149,51 @@ class LocoViewModel(app: Application) : AndroidViewModel(app) {
             newLink.model.state.collect { state -> onModelState(state) }
         }
         linkJobs += viewModelScope.launch { runTripComputer() }
+        linkJobs += viewModelScope.launch { runDeadManSwitch() }
         newLink.open()
     }
 
-    fun disconnect() {
-        // Sicherheit: beim Verlassen die Lok sanft anhalten
-        link?.send("=0")
-        closeLink()
-        wifi.release()
-        _ui.update { it.copy(screen = Screen.START, linkStatus = LinkStatus.CLOSED, connectingText = null) }
+    /** Zurück-Pfeil: Lok sanft anhalten und Verbindung freigeben. */
+    fun disconnect() = leave(message = null)
+
+    /**
+     * App wird verlassen (Home-Taste, Display aus, Anruf, App-Wechsel).
+     * Zur Sicherheit hält die Lok an, und die Verbindung wird freigegeben,
+     * damit sich jemand anderes verbinden kann.
+     */
+    fun onAppBackground() {
+        if (_ui.value.screen != Screen.CONTROL) return
+        leave("Die App wurde verlassen. Die Lok wurde zur Sicherheit angehalten und freigegeben.")
+    }
+
+    /**
+     * Sanft anhalten, zurück zur Startseite und das Lok-WLAN verlassen.
+     * Die Firmware bremst selbstständig weiter, auch wenn die Verbindung schon weg ist.
+     */
+    private fun leave(message: String?) {
+        val oldLink = link
+        linkJobs.forEach { it.cancel() }
+        linkJobs.clear()
+        foreignWarningJob?.cancel()
+        foreignWarningJob = null
+        link = null
+        dragging = false
+
+        oldLink?.send("=0")
+        _ui.update {
+            it.copy(
+                screen = Screen.START, linkStatus = LinkStatus.CLOSED, connectingText = null,
+                foreignControl = false, deadManCountdown = null, target = 0, error = message,
+            )
+        }
+
+        // Kurz warten, damit der Halt-Befehl sicher bei der Lok ankommt, dann trennen
+        viewModelScope.launch {
+            delay(FLUSH_BEFORE_CLOSE_MS)
+            oldLink?.close()
+            // Nur freigeben, wenn inzwischen keine neue Verbindung aufgebaut wird
+            if (link == null && _ui.value.connectingText == null) wifi.release()
+        }
     }
 
     /** Ein anderes Gerät ist schon im Lok-WLAN -> zurück zur Startseite mit Hinweis. */
@@ -174,6 +225,55 @@ class LocoViewModel(app: Application) : AndroidViewModel(app) {
         foreignWarningJob = null
         link?.close()
         link = null
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Totmann-Schalter
+    // ---------------------------------------------------------------------------------------
+
+    /** Jede Berührung auf dem Fahrpult zählt als "Ich bin noch da". */
+    fun onUserActivity() {
+        lastActivity = SystemClock.elapsedRealtime()
+        if (_ui.value.deadManCountdown != null) _ui.update { it.copy(deadManCountdown = null) }
+    }
+
+    /**
+     * Fährt die Lok und niemand berührt das Fahrpult, startet nach [UiState.deadManSeconds]
+     * ein Warn-Countdown. Kommt dann immer noch keine Berührung, hält die Lok sanft an
+     * und die App gibt die Lok frei.
+     */
+    private suspend fun runDeadManSwitch() {
+        while (true) {
+            delay(250)
+            val ui = _ui.value
+            val now = SystemClock.elapsedRealtime()
+            val moving = ui.level > 0 || ui.target != 0
+
+            // Steht die Lok, läuft keine Zeit ab
+            if (!moving) {
+                lastActivity = now
+                if (ui.deadManCountdown != null) _ui.update { it.copy(deadManCountdown = null) }
+                continue
+            }
+
+            val idleMillis = now - lastActivity
+            val warnAfterMillis = ui.deadManSeconds * 1000L
+            if (idleMillis < warnAfterMillis) {
+                if (ui.deadManCountdown != null) _ui.update { it.copy(deadManCountdown = null) }
+                continue
+            }
+
+            val warningMillis = DEAD_MAN_WARNING_SECONDS * 1000L
+            val remainingMillis = warningMillis - (idleMillis - warnAfterMillis)
+            if (remainingMillis <= 0) {
+                leave("Totmann-Schalter: Es wurde nichts mehr bedient. Die Lok wurde angehalten und freigegeben.")
+                return
+            }
+            val remainingSeconds = ((remainingMillis + 999) / 1000).toInt()
+            if (ui.deadManCountdown != remainingSeconds) {
+                _ui.update { it.copy(deadManCountdown = remainingSeconds) }
+            }
+        }
     }
 
     // ---------------------------------------------------------------------------------------
@@ -278,9 +378,14 @@ class LocoViewModel(app: Application) : AndroidViewModel(app) {
 
     fun resetTrip() = _ui.update { it.copy(distanceM = 0.0, driveMillis = 0L) }
 
-    fun saveSettings(scale: Int, maxKmh: Int) {
-        prefs.edit().putInt(PREF_SCALE, scale).putInt(PREF_MAX_KMH, maxKmh).apply()
-        _ui.update { it.copy(scale = scale, maxKmh = maxKmh) }
+    fun saveSettings(scale: Int, maxKmh: Int, deadManSeconds: Int) {
+        prefs.edit()
+            .putInt(PREF_SCALE, scale)
+            .putInt(PREF_MAX_KMH, maxKmh)
+            .putInt(PREF_DEAD_MAN, deadManSeconds)
+            .apply()
+        _ui.update { it.copy(scale = scale, maxKmh = maxKmh, deadManSeconds = deadManSeconds) }
+        onUserActivity()
     }
 
     // ---------------------------------------------------------------------------------------
@@ -293,6 +398,7 @@ class LocoViewModel(app: Application) : AndroidViewModel(app) {
         ssid.replace('_', ' ').trim().replaceFirstChar { it.uppercase() }.ifEmpty { "Lok" }
 
     override fun onCleared() {
+        link?.send("=0")
         closeLink()
         wifi.release()
         http.dispatcher.executorService.shutdown()
